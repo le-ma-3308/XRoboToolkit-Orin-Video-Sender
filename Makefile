@@ -1,8 +1,8 @@
 ###############################################################################
 #
-# Standalone Makefile for OrinVideoSender
+# Standalone Makefile for OrinVideoSender (RealSense)
 # Self-contained build configuration
-# By liuchuan.yu@bytedance.com
+# Modified for librealsense2
 #
 ###############################################################################
 
@@ -11,34 +11,9 @@ CXX = g++
 APP := OrinVideoSender
 
 ###############################################################################
-# WebCam
-
-# # TCP w/o asio -- pass
-# SRCS := \
-# 	main_web_gst.cpp
-###############################################################################
-
-###############################################################################
-# ZED
-
-# TCP w/o asio -- pass
+# Source selection: change to your RealSense main file here
 SRCS := \
- 	main_zed_tcp.cpp
-
-#SRCS := \
-	main_zed_tcp_zmq.cpp
-
-# # TCP with asio -- pass
-# SRCS := \
-# 	main_zed_asio.cpp
-
-# # UDP w/ asio -- pass
-# SRCS:= \
-# 	main_zed_asio_udp.cpp
-
-# # [NOT WORKING] Zero Copy - depends on jetson multimedia api
-# SRCS := \
-# 	main_zed_zero_copy.cpp
+	main_realsense_multi_client.cpp
 ###############################################################################
 
 OBJS := $(SRCS:.cpp=.o)
@@ -46,28 +21,27 @@ OBJS := $(SRCS:.cpp=.o)
 # Include paths
 CPPFLAGS := -std=c++11 \
 	-I./asio-1.30.2/include \
-	-I/usr/local/zed/include \
 	-I/usr/include/opencv4 \
 	-I/usr/local/cuda/include \
 	$(shell pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 glib-2.0 2>/dev/null || echo "") \
-	$(shell pkg-config --cflags libzmq 2>/dev/null || echo "")
+	$(shell pkg-config --cflags libzmq 2>/dev/null || echo "") \
+	$(shell pkg-config --cflags librealsense2 2>/dev/null || echo "")
 
 # Compiler flags
 CXXFLAGS := -Wall -Wextra -O2 -g
 
-# FFmpeg flags
+# FFmpeg flags (optional)
 CXXFLAGS += $(shell pkg-config --cflags libavcodec libavformat libavutil libswscale libavdevice 2>/dev/null || echo "")
 
 # Library paths and libraries
-LDFLAGS := -L/usr/local/zed/lib \
-	-L/usr/local/cuda/lib64
-	# -L/usr/lib/aarch64-linux-gnu
+LDFLAGS := -L/usr/local/cuda/lib64
 
 # FFmpeg libraries (must come first to avoid conflicts)
 LDFLAGS += $(shell pkg-config --libs libavcodec libavformat libavutil libswscale libavdevice 2>/dev/null || echo "-lavcodec -lavformat -lavutil -lswscale -lavdevice")
 
 # Core libraries
-LDFLAGS += -lsl_zed \
+LDFLAGS += \
+	-lrealsense2 \
 	-lcuda -lcudart \
 	-lopencv_core -lopencv_imgproc -lopencv_videoio -lopencv_imgcodecs \
 	-lssl -lcrypto \
@@ -77,7 +51,7 @@ LDFLAGS += -lsl_zed \
 # GStreamer libraries
 LDFLAGS += $(shell pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 glib-2.0 2>/dev/null || echo "-lgstreamer-1.0 -lgstapp-1.0 -lglib-2.0")
 
-# ZMQ library
+# ZMQ library (optional)
 LDFLAGS += $(shell pkg-config --libs libzmq 2>/dev/null || echo "-lzmq")
 
 all: $(APP)

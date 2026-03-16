@@ -4,8 +4,13 @@
 #include <future>
 #include <iostream>
 #include <netinet/in.h>
+#include <netinet/tcp.h>   // TCP_NODELAY
 #include <sys/socket.h>
+#include <sys/time.h>      // struct timeval for SO_SNDTIMEO
 #include <thread>
+#include <unistd.h>
+#include <cerrno>
+#include <cstring>
 
 class TCPException : public std::exception {
 private:
@@ -37,6 +42,26 @@ public:
     if (client_socket < 0) {
       throw TCPException("Socket creation failed: " +
                          std::string(strerror(errno)));
+    }
+
+    // Set send timeout to prevent blocking indefinitely (2 seconds - shorter for responsiveness)
+    struct timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+    if (setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+      std::cerr << "Warning: Failed to set send timeout: " << strerror(errno) << std::endl;
+    }
+
+    // Increase send buffer size for better throughput (2MB)
+    int send_buf_size = 2 * 1024 * 1024;
+    if (setsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &send_buf_size, sizeof(send_buf_size)) < 0) {
+      std::cerr << "Warning: Failed to set send buffer size: " << strerror(errno) << std::endl;
+    }
+
+    // Set TCP_NODELAY to reduce latency
+    int flag = 1;
+    if (setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0) {
+      std::cerr << "Warning: Failed to set TCP_NODELAY: " << strerror(errno) << std::endl;
     }
 
     sockaddr_in server_addr{};
